@@ -7,12 +7,11 @@
     "plugins": [
       [
         "expo-camera",
-        { "cameraPermission": "Allow 67 Alarm to access your camera to detect your arm swings." }
+        {
+          "cameraPermission": "Allow 67 Alarm to access your camera to detect your arm swings."
+        }
       ],
-      [
-        "expo-notifications",
-        { "sounds": ["./assets/alarm.wav"] }
-      ]
+      "expo-audio"
     ],
     "ios": {
       "bundleIdentifier": "com.yourname.67alarm",
@@ -22,7 +21,12 @@
     },
     "android": {
       "package": "com.yourname.alarm67",
-      "permissions": ["CAMERA", "RECEIVE_BOOT_COMPLETED", "VIBRATE", "USE_FULL_SCREEN_INTENT"]
+      "permissions": [
+        "CAMERA",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "USE_FULL_SCREEN_INTENT"
+      ]
     }
   }
 }
