@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "67 Alarm",
+    "slug": "67alarm",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "plugins": [
+      [
+        "expo-camera",
+        { "cameraPermission": "Allow 67 Alarm to access your camera to detect your arm swings." }
+      ],
+      [
+        "expo-notifications",
+        { "sounds": ["./assets/alarm.wav"] }
+      ]
+    ],
+    "ios": {
+      "bundleIdentifier": "com.yourname.67alarm",
+      "infoPlist": {
+        "NSCameraUsageDescription": "To detect your 67s and stop the alarm."
+      }
+    },
+    "android": {
+      "package": "com.yourname.alarm67",
+      "permissions": ["CAMERA", "RECEIVE_BOOT_COMPLETED", "VIBRATE", "USE_FULL_SCREEN_INTENT"]
+    }
+  }
+}
