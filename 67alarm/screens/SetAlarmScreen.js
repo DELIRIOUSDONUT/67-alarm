@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import ActionButton from '../components/actionButton/ActionButton';
 import { scheduleAlarm } from '../utils/scheduleAlarm';
+import { saveAlarmTime } from '../utils/storage';
 
-export default function SetAlarmScreen({ onBack }) {
+export default function SetAlarmScreen({ onNext, onBack }) {
   const [date, setDate] = useState(() => {
     const d = new Date();
     d.setMinutes(d.getMinutes() + 1);
     return d;
   });
 
-  async function handleSet() {
+  async function handleNext() {
     await scheduleAlarm(date);
-    await AsyncStorage.setItem('nextAlarm', date.toISOString());
-    onBack();
+    await saveAlarmTime(date);
+    onNext();
   }
 
   return (
@@ -31,23 +32,28 @@ export default function SetAlarmScreen({ onBack }) {
         themeVariant="dark"
       />
 
-      <TouchableOpacity style={styles.btn} onPress={handleSet}>
-        <Text style={styles.btnText}>Set Alarm ✓</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-        <Text style={styles.backText}>Cancel</Text>
-      </TouchableOpacity>
+      <ActionButton title="Next →" onPress={handleNext} />
+      <ActionButton title="Cancel" onPress={onBack} variant="secondary" />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0a', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  title: { fontSize: 32, fontWeight: '900', color: 'white', marginBottom: 40 },
-  picker: { width: 320, marginBottom: 40 },
-  btn: { backgroundColor: '#ff3b30', paddingVertical: 16, paddingHorizontal: 40, borderRadius: 50, width: '100%', alignItems: 'center', marginBottom: 16 },
-  btnText: { color: 'white', fontSize: 18, fontWeight: '700' },
-  backBtn: { padding: 16 },
-  backText: { color: '#888', fontSize: 16 },
+  container: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: 'white',
+    marginBottom: 40,
+  },
+  picker: {
+    width: 320,
+    marginBottom: 40,
+  },
 });

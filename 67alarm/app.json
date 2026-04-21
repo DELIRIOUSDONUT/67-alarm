@@ -11,7 +11,13 @@
           "cameraPermission": "Allow 67 Alarm to access your camera to detect your arm swings."
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-notifications",
+        {
+          "sounds": ["./assets/alarm.wav"]
+        }
+      ]
     ],
     "ios": {
       "bundleIdentifier": "com.yourname.67alarm",
