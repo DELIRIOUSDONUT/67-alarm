@@ -1,8 +1,9 @@
 const DEFAULTS = {
-  handDiffThreshold: 0.03,
-  smoothingFactor: 0.7,
-  minRepIntervalMs: 350,
-  minVisibility: 0.35,
+  diffThreshold: 0.08,
+  smoothingFactor: 0.6,
+  minRepIntervalMs: 400,
+  minVisibility: 0.3,
+  debug: true,
 };
 
 export default class MotionTracker {
@@ -13,60 +14,96 @@ export default class MotionTracker {
 
   reset() {
     this.reps = 0;
+    // phases: 'neutral' | 'leftUp' | 'leftDown' | 'rightUp' | 'rightDown'
     this.phase = 'neutral';
     this.lastRepTime = 0;
     this.leftYSmoothed = null;
     this.rightYSmoothed = null;
-    this.prevLeftY = null;
-    this.prevRightY = null;
-    this.prevTimestamp = null;
   }
 
   process(landmarks, timestamp = Date.now()) {
+    const vis = (lm) => lm.visibility ?? lm.v ?? 1;
     const { leftShoulder, rightShoulder, leftWrist, rightWrist } = landmarks;
 
-    if (leftWrist.v < this.cfg.minVisibility || rightWrist.v < this.cfg.minVisibility ||
-        leftShoulder.v < this.cfg.minVisibility || rightShoulder.v < this.cfg.minVisibility) {
+    if (
+      vis(leftWrist)     < this.cfg.minVisibility ||
+      vis(rightWrist)    < this.cfg.minVisibility ||
+      vis(leftShoulder)  < this.cfg.minVisibility ||
+      vis(rightShoulder) < this.cfg.minVisibility
+    ) {
       return { status: 'low_visibility', reps: this.reps, phase: this.phase };
     }
 
-    const leftYRel = leftWrist.y - leftShoulder.y;
+    const leftYRel  = leftWrist.y  - leftShoulder.y;
     const rightYRel = rightWrist.y - rightShoulder.y;
 
     if (this.leftYSmoothed === null) {
-      this.leftYSmoothed = leftYRel;
+      this.leftYSmoothed  = leftYRel;
       this.rightYSmoothed = rightYRel;
-      this.prevLeftY = leftYRel;
-      this.prevRightY = rightYRel;
-      this.prevTimestamp = timestamp;
       return { status: 'initializing', reps: this.reps, phase: this.phase };
     }
 
-    const alpha = this.cfg.smoothingFactor;
-    this.leftYSmoothed = alpha * leftYRel + (1 - alpha) * this.leftYSmoothed;
-    this.rightYSmoothed = alpha * rightYRel + (1 - alpha) * this.rightYSmoothed;
+    const a = this.cfg.smoothingFactor;
+    this.leftYSmoothed  = a * leftYRel  + (1 - a) * this.leftYSmoothed;
+    this.rightYSmoothed = a * rightYRel + (1 - a) * this.rightYSmoothed;
 
-    const dt = Math.max(timestamp - this.prevTimestamp, 1) / 1000;
-    const leftVelocity = (this.leftYSmoothed - this.prevLeftY) / dt;
-    const rightVelocity = (this.rightYSmoothed - this.prevRightY) / dt;
+    const thr = this.cfg.diffThreshold;
+    // Negative rel = wrist is ABOVE shoulder
+    const leftIsUp   = this.leftYSmoothed  < -thr;
+    const leftIsDown = this.leftYSmoothed  >  thr;
+    const rightIsUp  = this.rightYSmoothed < -thr;
+    const rightIsDown = this.rightYSmoothed >  thr;
 
-    this.prevLeftY = this.leftYSmoothed;
-    this.prevRightY = this.rightYSmoothed;
-    this.prevTimestamp = timestamp;
+    const now = timestamp;
+    const canCount = now - this.lastRepTime > this.cfg.minRepIntervalMs;
 
-    const diff = this.leftYSmoothed - this.rightYSmoothed;
-    const thr = this.cfg.handDiffThreshold;
-    const leftHigher = diff < -thr;
-    const rightHigher = diff > thr;
+    switch (this.phase) {
+      case 'neutral':
+        // Accept whichever arm goes up first
+        if (leftIsUp && canCount) {
+          this.reps++;
+          this.lastRepTime = now;
+          this.phase = 'leftUp';
+        } else if (rightIsUp && canCount) {
+          this.reps++;
+          this.lastRepTime = now;
+          this.phase = 'rightUp';
+        }
+        break;
 
-    if (leftHigher && this.phase !== 'leftUp') {
-      this.phase = 'leftUp';
-    } else if (rightHigher && this.phase === 'leftUp') {
-      if (timestamp - this.lastRepTime > this.cfg.minRepIntervalMs) {
-        this.reps++;
-        this.lastRepTime = timestamp;
-        this.phase = 'rightUp';
-      }
+      case 'leftUp':
+        // Wait for left to come down
+        if (leftIsDown) this.phase = 'leftDown';
+        break;
+
+      case 'leftDown':
+        // Now right must go up
+        if (rightIsUp && canCount) {
+          this.reps++;
+          this.lastRepTime = now;
+          this.phase = 'rightUp';
+        }
+        break;
+
+      case 'rightUp':
+        // Wait for right to come down
+        if (rightIsDown) this.phase = 'rightDown';
+        break;
+
+      case 'rightDown':
+        // Now left must go up
+        if (leftIsUp && canCount) {
+          this.reps++;
+          this.lastRepTime = now;
+          this.phase = 'leftUp';
+        }
+        break;
+    }
+
+    if (this.cfg.debug) {
+      console.log(
+        `[67] L=${this.leftYSmoothed.toFixed(3)} R=${this.rightYSmoothed.toFixed(3)} | phase=${this.phase} | reps=${this.reps}`
+      );
     }
 
     return {
@@ -75,8 +112,6 @@ export default class MotionTracker {
       phase: this.phase,
       leftY: this.leftYSmoothed,
       rightY: this.rightYSmoothed,
-      leftVelocity,
-      rightVelocity,
     };
   }
 }
